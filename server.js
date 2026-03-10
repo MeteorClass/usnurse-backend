@@ -2,6 +2,10 @@ import express from 'express'
 import cors from 'cors'
 import { google } from 'googleapis'
 import multer from 'multer'
+import fs from 'fs'
+import path from 'path'
+
+const RESUME_FOLDER = '/Users/meteorclass/Documents/USNurseDirect/Resumes'
 
 const app = express()
 app.use(cors())
@@ -101,6 +105,14 @@ app.post('/api/apply', upload.single('resume'), async (req, res) => {
       f.priorContract || '', f.priorContractExplanation || '',
       f.preferredContact || '', f.availableDays || ''
     ]
+
+    // Save resume locally
+    if (resumeFile) {
+      const safeName = `${f.firstName || 'Unknown'}_${f.lastName || 'Unknown'}_${now.toISOString().slice(0,10)}_${Date.now()}${path.extname(resumeFile.originalname)}`
+      const savePath = path.join(RESUME_FOLDER, safeName)
+      fs.mkdirSync(RESUME_FOLDER, { recursive: true })
+      fs.writeFileSync(savePath, resumeFile.buffer)
+    }
 
     // Save to Google Sheets
     const sheets = getSheetsClient()
