@@ -1,10 +1,12 @@
 import express from 'express'
 import cors from 'cors'
 import { google } from 'googleapis'
+import multer from 'multer'
 
 const app = express()
 app.use(cors())
-app.use(express.json())
+
+const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } })
 
 const CLIENT_ID = process.env.GOOGLE_CLIENT_ID
 const CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET
@@ -49,9 +51,37 @@ function makeEmail({ to, from, subject, body }) {
   return Buffer.from(msg).toString('base64url')
 }
 
-app.post('/api/apply', async (req, res) => {
+function makeEmailWithAttachment({ to, from, subject, body, attachment }) {
+  const boundary = 'boundary_' + Date.now()
+  const attachmentBase64 = attachment.buffer.toString('base64')
+  const lines = [
+    `From: USNurse Direct <${from}>`,
+    `To: ${to}`,
+    `Subject: ${subject}`,
+    'MIME-Version: 1.0',
+    `Content-Type: multipart/mixed; boundary="${boundary}"`,
+    '',
+    `--${boundary}`,
+    'Content-Type: text/plain; charset=UTF-8',
+    '',
+    body,
+    '',
+    `--${boundary}`,
+    `Content-Type: application/octet-stream; name="${attachment.originalname}"`,
+    'Content-Transfer-Encoding: base64',
+    `Content-Disposition: attachment; filename="${attachment.originalname}"`,
+    '',
+    attachmentBase64,
+    '',
+    `--${boundary}--`
+  ]
+  return Buffer.from(lines.join('\r\n')).toString('base64url')
+}
+
+app.post('/api/apply', upload.single('resume'), async (req, res) => {
   try {
     const f = req.body
+    const resumeFile = req.file
     const now = new Date()
     const date = now.toLocaleDateString('en-US', { timeZone: 'America/Chicago', year: 'numeric', month: 'long', day: 'numeric' })
     const time = now.toLocaleTimeString('en-US', { timeZone: 'America/Chicago', hour: '2-digit', minute: '2-digit' })
@@ -147,18 +177,28 @@ Available: ${f.availableDays}
 Nursing Experience:
 ${f.nursingExperience}
 
+Resume: ${resumeFile ? resumeFile.originalname : 'Not provided'}
+
 Submitted: ${date} ${time} CST`
 
-    await careersGmail.users.messages.send({
-      userId: 'me',
-      requestBody: {
-        raw: makeEmail({
+    const notifyEmailRaw = resumeFile
+      ? makeEmailWithAttachment({
+          to: 'careers@usnursedirect.global',
+          from: 'careers@usnursedirect.global',
+          subject: `🆕 New Applicant: ${f.firstName} ${f.lastName}`,
+          body: notifyBody,
+          attachment: resumeFile
+        })
+      : makeEmail({
           to: 'careers@usnursedirect.global',
           from: 'careers@usnursedirect.global',
           subject: `🆕 New Applicant: ${f.firstName} ${f.lastName}`,
           body: notifyBody
         })
-      }
+
+    await careersGmail.users.messages.send({
+      userId: 'me',
+      requestBody: { raw: notifyEmailRaw }
     })
 
     res.json({ success: true })
