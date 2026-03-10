@@ -108,7 +108,7 @@ app.post('/api/apply', upload.single('resume'), async (req, res) => {
 
     // Save resume locally
     if (resumeFile) {
-      const safeName = `${f.firstName || 'Unknown'}_${f.lastName || 'Unknown'}_${now.toISOString().slice(0,10)}_${Date.now()}${path.extname(resumeFile.originalname)}`
+      const safeName = `${now.toISOString().slice(0,10)}_${Date.now()}_${f.firstName || 'Unknown'}_${f.lastName || 'Unknown'}${path.extname(resumeFile.originalname)}`
       const savePath = path.join(RESUME_FOLDER, safeName)
       fs.mkdirSync(RESUME_FOLDER, { recursive: true })
       fs.writeFileSync(savePath, resumeFile.buffer)
