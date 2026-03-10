@@ -5,7 +5,8 @@ import multer from 'multer'
 import fs from 'fs'
 import path from 'path'
 
-const RESUME_FOLDER = '/Users/meteorclass/Documents/USNurseDirect/Resumes'
+const RESUME_FOLDER = process.env.RESUME_FOLDER || '/tmp/resumes'
+if (!fs.existsSync(RESUME_FOLDER)) fs.mkdirSync(RESUME_FOLDER, { recursive: true })
 
 const app = express()
 app.use(cors())
