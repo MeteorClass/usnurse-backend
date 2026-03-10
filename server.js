@@ -47,9 +47,10 @@ function encodeSubject(subject) {
 }
 
 function makeEmail({ to, from, subject, body }) {
+  const toClean = (to || '').trim()
   const msg = [
     `From: USNurse Direct <${from}>`,
-    `To: ${to}`,
+    `To: ${toClean}`,
     `Subject: ${encodeSubject(subject)}`,
     'MIME-Version: 1.0',
     'Content-Type: text/plain; charset=UTF-8',
@@ -60,11 +61,12 @@ function makeEmail({ to, from, subject, body }) {
 }
 
 function makeEmailWithAttachment({ to, from, subject, body, attachment }) {
+  const toClean = (to || '').trim()
   const boundary = 'boundary_' + Date.now()
   const attachmentBase64 = attachment.buffer.toString('base64')
   const lines = [
     `From: USNurse Direct <${from}>`,
-    `To: ${to}`,
+    `To: ${toClean}`,
     `Subject: ${encodeSubject(subject)}`,
     'MIME-Version: 1.0',
     `Content-Type: multipart/mixed; boundary="${boundary}"`,
@@ -158,11 +160,11 @@ www.usnursedirect.global`
 
     const careersGmail = getGmailClient(CAREERS_REFRESH_TOKEN)
 
-    await careersGmail.users.messages.send({
+    if (f.email && f.email.trim()) await careersGmail.users.messages.send({
       userId: 'me',
       requestBody: {
         raw: makeEmail({
-          to: f.email,
+          to: f.email.trim(),
           from: 'careers@usnursedirect.global',
           subject: 'Your USNurse Direct Application Has Been Received',
           body: autoReplyBody
@@ -201,14 +203,14 @@ Submitted: ${date} ${time} CST`
       ? makeEmailWithAttachment({
           to: 'careers@usnursedirect.global',
           from: 'careers@usnursedirect.global',
-          subject: `🆕 New Applicant: ${f.firstName} ${f.lastName}`,
+          subject: `New Applicant: ${f.firstName} ${f.lastName}`,
           body: notifyBody,
           attachment: resumeFile
         })
       : makeEmail({
           to: 'careers@usnursedirect.global',
           from: 'careers@usnursedirect.global',
-          subject: `🆕 New Applicant: ${f.firstName} ${f.lastName}`,
+          subject: `New Applicant: ${f.firstName} ${f.lastName}`,
           body: notifyBody
         })
 
