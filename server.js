@@ -138,12 +138,6 @@ Thank you for submitting your application to USNurse Direct!
 
 We have received your pre-screening form and our team will review your information carefully. You can expect to hear from us within 2–3 business days to schedule your screening interview.
 
-Here is a summary of what you submitted:
-- Name: ${f.firstName} ${f.lastName}
-- NCLEX Passed: ${f.nclex}
-- Preferred States: ${[f.state1, f.state2, f.state3].filter(Boolean).join(', ')}
-- Current Location: ${f.currentLocation}
-
 What happens next?
 1. Our team reviews your application
 2. We match you with available direct hire positions
