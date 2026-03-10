@@ -227,6 +227,22 @@ Submitted: ${date} ${time} CST`
   }
 })
 
+app.get('/test-email', async (req, res) => {
+  try {
+    const careersGmail = getGmailClient(CAREERS_REFRESH_TOKEN)
+    const raw = makeEmail({
+      to: 'lexersandbox@gmail.com',
+      from: 'careers@usnursedirect.global',
+      subject: 'Test Email',
+      body: 'This is a test.'
+    })
+    await careersGmail.users.messages.send({ userId: 'me', requestBody: { raw } })
+    res.json({ success: true })
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message, stack: err.stack })
+  }
+})
+
 app.get('/health', (req, res) => res.json({ status: 'ok' }))
 
 const PORT = process.env.PORT || 3002
