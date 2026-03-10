@@ -42,11 +42,15 @@ function getGmailClient(refreshToken) {
   return google.gmail({ version: 'v1', auth })
 }
 
+function encodeSubject(subject) {
+  return `=?UTF-8?B?${Buffer.from(subject).toString('base64')}?=`
+}
+
 function makeEmail({ to, from, subject, body }) {
   const msg = [
     `From: USNurse Direct <${from}>`,
     `To: ${to}`,
-    `Subject: ${subject}`,
+    `Subject: ${encodeSubject(subject)}`,
     'MIME-Version: 1.0',
     'Content-Type: text/plain; charset=UTF-8',
     '',
@@ -61,7 +65,7 @@ function makeEmailWithAttachment({ to, from, subject, body, attachment }) {
   const lines = [
     `From: USNurse Direct <${from}>`,
     `To: ${to}`,
-    `Subject: ${subject}`,
+    `Subject: ${encodeSubject(subject)}`,
     'MIME-Version: 1.0',
     `Content-Type: multipart/mixed; boundary="${boundary}"`,
     '',
@@ -160,7 +164,7 @@ www.usnursedirect.global`
         raw: makeEmail({
           to: f.email,
           from: 'careers@usnursedirect.global',
-          subject: 'Your USNurse Direct Application Has Been Received ✅',
+          subject: 'Your USNurse Direct Application Has Been Received',
           body: autoReplyBody
         })
       }
