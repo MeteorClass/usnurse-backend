@@ -131,7 +131,9 @@ app.post('/api/apply', upload.single('resume'), async (req, res) => {
       requestBody: { values: [row] }
     })
 
-    // Auto-reply to applicant
+    // Email operations — wrapped separately so form submission succeeds even if email is down
+    let emailErrors = []
+
     const autoReplyBody = `Dear ${f.firstName},
 
 Thank you for submitting your application to USNurse Direct!
@@ -153,22 +155,31 @@ The USNurse Direct Team
 careers@usnursedirect.global
 www.usnursedirect.global`
 
-    const careersGmail = getGmailClient(CAREERS_REFRESH_TOKEN)
+    try {
+      const careersGmail = getGmailClient(CAREERS_REFRESH_TOKEN)
 
-    if (f.email && f.email.trim()) await careersGmail.users.messages.send({
-      userId: 'me',
-      requestBody: {
-        raw: makeEmail({
-          to: f.email.trim(),
-          from: 'careers@usnursedirect.global',
-          subject: 'Your USNurse Direct Application Has Been Received',
-          body: autoReplyBody
-        })
+      // Auto-reply to applicant
+      if (f.email && f.email.trim()) {
+        try {
+          await careersGmail.users.messages.send({
+            userId: 'me',
+            requestBody: {
+              raw: makeEmail({
+                to: f.email.trim(),
+                from: 'careers@usnursedirect.global',
+                subject: 'Your USNurse Direct Application Has Been Received',
+                body: autoReplyBody
+              })
+            }
+          })
+        } catch (emailErr) {
+          console.error('Auto-reply email failed:', emailErr.message)
+          emailErrors.push('auto-reply: ' + emailErr.message)
+        }
       }
-    })
 
-    // Notify careers team
-    const notifyBody = `New application received from ${f.firstName} ${f.lastName}
+      // Notify careers team
+      const notifyBody = `New application received from ${f.firstName} ${f.lastName}
 
 Email: ${f.email}
 Phone: ${f.phone}
@@ -194,27 +205,36 @@ Resume: ${resumeFile ? resumeFile.originalname : 'Not provided'}
 
 Submitted: ${date} ${time} CST`
 
-    const notifyEmailRaw = resumeFile
-      ? makeEmailWithAttachment({
-          to: 'careers@usnursedirect.global',
-          from: 'careers@usnursedirect.global',
-          subject: `New Applicant: ${f.firstName} ${f.lastName}`,
-          body: notifyBody,
-          attachment: resumeFile
-        })
-      : makeEmail({
-          to: 'careers@usnursedirect.global',
-          from: 'careers@usnursedirect.global',
-          subject: `New Applicant: ${f.firstName} ${f.lastName}`,
-          body: notifyBody
-        })
+      const notifyEmailRaw = resumeFile
+        ? makeEmailWithAttachment({
+            to: 'careers@usnursedirect.global',
+            from: 'careers@usnursedirect.global',
+            subject: `New Applicant: ${f.firstName} ${f.lastName}`,
+            body: notifyBody,
+            attachment: resumeFile
+          })
+        : makeEmail({
+            to: 'careers@usnursedirect.global',
+            from: 'careers@usnursedirect.global',
+            subject: `New Applicant: ${f.firstName} ${f.lastName}`,
+            body: notifyBody
+          })
 
-    await careersGmail.users.messages.send({
-      userId: 'me',
-      requestBody: { raw: notifyEmailRaw }
-    })
+      try {
+        await careersGmail.users.messages.send({
+          userId: 'me',
+          requestBody: { raw: notifyEmailRaw }
+        })
+      } catch (emailErr) {
+        console.error('Notification email failed:', emailErr.message)
+        emailErrors.push('notification: ' + emailErr.message)
+      }
+    } catch (emailErr) {
+      console.error('Gmail client init failed:', emailErr.message)
+      emailErrors.push('gmail-init: ' + emailErr.message)
+    }
 
-    res.json({ success: true })
+    res.json({ success: true, emailSent: emailErrors.length === 0, ...(emailErrors.length > 0 && { emailErrors }) })
   } catch (err) {
     console.error('Error:', err.message)
     res.status(500).json({ success: false, error: err.message })
