@@ -296,6 +296,24 @@ app.get('/test-email', async (req, res) => {
   }
 })
 
+app.get('/test-drive', async (req, res) => {
+  try {
+    const drive = getDriveClient()
+    const folderId = process.env.DRIVE_FOLDER_ID || '1anHHD5KPR5573sPkErTHOVgky6x_oaTt'
+    const { Readable } = await import('stream')
+    const testContent = Buffer.from('Drive test file from Railway')
+    const stream = Readable.from(testContent)
+    const result = await drive.files.create({
+      requestBody: { name: 'test-drive-check.txt', parents: [folderId] },
+      media: { mimeType: 'text/plain', body: stream },
+      fields: 'id, name, webViewLink'
+    })
+    res.json({ success: true, file: result.data })
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message, stack: err.stack })
+  }
+})
+
 app.get('/health', (req, res) => res.json({ status: 'ok' }))
 
 const PORT = process.env.PORT || 3002
