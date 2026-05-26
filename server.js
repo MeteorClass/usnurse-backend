@@ -125,7 +125,7 @@ app.post('/api/apply', upload.single('resume'), async (req, res) => {
     const sheets = getSheetsClient()
     await sheets.spreadsheets.values.append({
       spreadsheetId: SHEET_ID,
-      range: 'Sheet1!A:AB',
+      range: 'Sheet1!A1',
       valueInputOption: 'USER_ENTERED',
       insertDataOption: 'INSERT_ROWS',
       requestBody: { values: [row] }
