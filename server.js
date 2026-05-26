@@ -4,6 +4,7 @@ import { google } from 'googleapis'
 import multer from 'multer'
 import fs from 'fs'
 import path from 'path'
+import { Readable } from 'stream'
 
 const RESUME_FOLDER = process.env.RESUME_FOLDER || '/tmp/resumes'
 if (!fs.existsSync(RESUME_FOLDER)) fs.mkdirSync(RESUME_FOLDER, { recursive: true })
@@ -41,6 +42,31 @@ function getGmailClient(refreshToken) {
   const auth = new google.auth.OAuth2(CLIENT_ID, CLIENT_SECRET)
   auth.setCredentials({ refresh_token: refreshToken })
   return google.gmail({ version: 'v1', auth })
+}
+
+function getDriveClient() {
+  const auth = new google.auth.OAuth2(CLIENT_ID, CLIENT_SECRET)
+  auth.setCredentials({ refresh_token: CAREERS_REFRESH_TOKEN })
+  return google.drive({ version: 'v3', auth })
+}
+
+async function uploadResumeToDrive(file, firstName, lastName, dateStr) {
+  const drive = getDriveClient()
+  const folderId = process.env.DRIVE_FOLDER_ID || '1anHHD5KPR5573sPkErTHOVgky6x_oaTt'
+  const safeName = `${dateStr}_${firstName}_${lastName}${path.extname(file.originalname)}`
+  const stream = Readable.from(file.buffer)
+  const res = await drive.files.create({
+    requestBody: {
+      name: safeName,
+      parents: [folderId]
+    },
+    media: {
+      mimeType: file.mimetype || 'application/octet-stream',
+      body: stream
+    },
+    fields: 'id, name, webViewLink'
+  })
+  return res.data
 }
 
 function encodeSubject(subject) {
@@ -113,12 +139,25 @@ app.post('/api/apply', upload.single('resume'), async (req, res) => {
       f.preferredContact || '', f.availableDays || ''
     ]
 
-    // Save resume locally
+    // Save resume locally (ephemeral backup)
     if (resumeFile) {
       const safeName = `${now.toISOString().slice(0,10)}_${Date.now()}_${f.firstName || 'Unknown'}_${f.lastName || 'Unknown'}${path.extname(resumeFile.originalname)}`
       const savePath = path.join(RESUME_FOLDER, safeName)
       fs.mkdirSync(RESUME_FOLDER, { recursive: true })
       fs.writeFileSync(savePath, resumeFile.buffer)
+    }
+
+    // Upload resume to Google Drive (permanent storage)
+    let driveLink = null
+    if (resumeFile) {
+      try {
+        const dateStr = now.toISOString().slice(0, 10)
+        const driveFile = await uploadResumeToDrive(resumeFile, f.firstName || 'Unknown', f.lastName || 'Unknown', dateStr)
+        driveLink = driveFile.webViewLink
+        console.log('Resume uploaded to Drive:', driveFile.name, driveLink)
+      } catch (driveErr) {
+        console.error('Drive upload failed:', driveErr.message)
+      }
     }
 
     // Save to Google Sheets
@@ -201,7 +240,7 @@ Available: ${f.availableDays}
 Nursing Experience:
 ${f.nursingExperience}
 
-Resume: ${resumeFile ? resumeFile.originalname : 'Not provided'}
+Resume: ${resumeFile ? resumeFile.originalname : 'Not provided'}${driveLink ? '\nDrive Link: ' + driveLink : ''}
 
 Submitted: ${date} ${time} CST`
 
