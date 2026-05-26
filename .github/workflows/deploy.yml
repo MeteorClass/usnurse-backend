@@ -18,3 +18,4 @@ jobs:
         run: railway up --service abundant-smile --environment production --detach
         env:
           RAILWAY_API_TOKEN: ${{ secrets.RAILWAY_API_TOKEN }}
+          RAILWAY_PROJECT_ID: c6440c57-5a6c-410e-a185-30ff188b878c
